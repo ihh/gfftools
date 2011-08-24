@@ -1,0 +1,33 @@
+name { transposon }
+flushlen { 4000 }
+gffcachelen { 3000 }
+begin { $transposoncount = 0 }
+
+link { from { start } to { start } }
+
+eval { $linkend_is_spcwise_startpoint = grep($grepgffsource eq "spcwise" && $linkend == $grepgffstart, @gffcache) }
+
+link { from { start } to { ir1 }
+	maxlen { 3000 }
+	endfilter { $linkend_is_spcwise_startpoint && $gfffeature eq "invrep" && $gffstrand eq "+" && $linkend > $gffstart }
+	startfilter { $linkstart == $gffstart }
+	insertgff { }
+	push { }
+	display { print $gfftext." mar".++$transposoncount."\n" } }
+
+link { from { ir1 } to { ir2 }
+	maxlen { 1500 }
+	endfilter { $gffsource eq "spcwise" && $linkend == $gffend + 1 }
+	startfilter { $linkstart == $gffstart }
+	display { print $gfftext." mar".$transposoncount."\n" } }
+
+link { from { ir2 } to { end }
+	maxlen { 3000 }
+	endfilter { $linkend == $gffend + 1 }
+	startfilter { $linkstart <= $gffstart }
+	popfilter { }
+	display { print $gfftext." mar".$transposoncount."\n" } }
+
+link { from { end } to { start } }
+
+link { from { end } to { end } }

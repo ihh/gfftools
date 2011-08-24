@@ -1,0 +1,114 @@
+comment { Recognised GFFs: (start_exon end_exon start_end_exon exon intron ORF) }
+author { Ian Holmes ihh@sanger.ac.uk }
+
+eval { my $f; @exon_starts_at_linkend = map(($f=$_,scalar(grep($grepgfffeature =~ /exon/ && $grepgffstart==$linkend && $grepgffframe==$f, @gffcache)))[1], 0..2) }
+
+
+link { comment { Start a new gene }
+	from { start } to { exon_start }
+	maxlen { 0 }
+	endfilter { $gfffeature =~ /exon/ && $linkend == $gffstart && $gffframe==0 }
+	push { "$gffframe $gffgroup" }
+	display { print "#\n# New gene\n#\n" }
+}
+
+link { comment { Exon }
+	from { exon_start } to { exon_end }
+	maxlen { 1000 }
+	endfilter { $gfffeature =~ /exon/ && $linkend == $gffend + 1 }
+	startfilter { $linkstart == $gffstart }
+	popfilter { my ($f,$g) = split; $f==$gffframe && $g eq $gffgroup }
+	push { $exit_frame = ($gffframe + $linklen) % 3; "$exit_frame $gffgroup" }
+	display { }
+}
+
+link { comment { Intron }
+	from { exon_end } to { exon_start }
+	maxlen { 1000 }
+	endfilter { $gfffeature =~ /intron/ && $linkend == $gffend + 1 }
+	startfilter { $linkstart == $gffstart }
+	popfilter { my ($f,$g) = split; $g eq $gffgroup }
+	push { $_ }
+	display { }
+}
+
+link { comment { End of a gene }
+	from { exon_end } to { end }
+	popfilter { 1 }
+}
+
+link { comment { Loop back, ready for another gene }
+	from { end } to { start }
+}
+
+
+link { comment { Partial end exon }
+	from { exon_start } to { partial_end_exon }
+	maxlen { 1000 }
+	endfilter { $gfffeature =~ /end/ && $linkend > $gffstart && ($exit_frame = ($gffframe+$linkend-$gffstart) % 3, grep($_!=$gff && $grepgfffeature =~ /exon/ && $grepgffstart<=$linkend && $grepgffend>$linkend && ($grepgffframe+$linkend-$grepgffstart) % 3 == $exit_frame, @gffcache))[1] }
+	startfilter { $linkstart == $gffstart }
+	popfilter { my ($f,$g) = split; $f==$gffframe && $g eq $gffgroup }
+	push { $exit_frame }
+	display { print "$gfftext PARTIAL HIT from $linkstart to $linkend\n" }
+}
+
+link { comment { Leap into the middle of an internal exon following a partial end exon }
+	from { partial_end_exon } to { exon_end }
+	maxlen { 1000 }
+	endfilter { $gfffeature =~ /exon/ && $linkend == $gffend + 1 }
+	startfilter { $linkstart >= $gffstart }
+	popfilter { $_ == $gffframe }
+	push { $exit_frame = ($gffframe + $linklen) % 3; "$exit_frame $gffgroup" }
+	display { print "$gfftext PARTIAL HIT from $linkstart to $linkend\n" }
+}
+
+
+link { comment { Partial internal exon }
+	from { exon_start } to { partial_internal_exon }
+	maxlen { 1000 }
+	endfilter { $gfffeature =~ /exon/ && $linkend > $gffstart && ($exit_frame = ($gffframe+$linkend-$gffstart) % 3, grep($_ ne $gff && $grepgfffeature =~ /start/ && $grepgffstart<=$linkend && $grepgffend>$linkend && ($grepgffframe+$linkend-$grepgffstart) % 3 == $exit_frame, @gffcache))[1] }
+	startfilter { $linkstart == $gffstart }
+	popfilter { my ($f,$g) = split; $f==$gffframe && $g eq $gffgroup }
+	push { $exit_frame }
+	display { print "$gfftext PARTIAL HIT from $linkstart to $linkend\n" }
+}
+
+link { comment { Leap into the middle of a start exon following a partial internal exon }
+	from { partial_internal_exon } to { exon_end }
+	maxlen { 1000 }
+	endfilter { $gfffeature =~ /start/ && $linkend == $gffend + 1 }
+	startfilter { $linkstart >= $gffstart }
+	popfilter { $_ == $gffframe }
+	push { $exit_frame = ($gffframe + $linklen) % 3; "$exit_frame $gffgroup" }
+	display { print "$gfftext PARTIAL HIT from $linkstart to $linkend\n" }
+}
+
+
+link { comment { Bridge exons using a convenient ORF }
+	from { exon_end } to { ORF }
+	maxlen { 1000 }
+	endfilter { $gfffeature =~ /ORF/ && $linkend >= $gffstart && $linkend <= $gffend + 1 }
+	startfilter { $linkstart >= $gffstart && $linkend <= $gffend + 1 }
+	popfilter { my ($f,$g) = split; $exit_frame = ($linkend-$gffstart) % 3; $f == ($linkstart-$gffstart) % 3 && $exon_starts_at_linkend[$exit_frame] }
+	push { $exit_frame }
+	display { print "$gfftext ORF from $linkstart to $linkend\n" }
+}
+
+link { comment { Extend the front of an exon using an ORF }
+	from { start } to { ORF }
+	maxlen { 1000 }
+	endfilter { $gfffeature =~ /ORF/ && $linkend >= $gffstart && $linkend <= $gffend + 1 && $exon_starts_at_linkend[$exit_frame = ($linkend-$gffstart) % 3] }
+	startfilter { $linkstart == $gffstart }
+	push { $exit_frame }
+	display { print "$gfftext ORF from $linkstart to $linkend\n" }
+}
+
+link { comment { Get the stack ready for the next exon after an ORF segment }
+	from { ORF } to { exon_start }
+	maxlen { 0 }
+	endfilter { $gfffeature =~ /exon/ && $linkend == $gffstart }
+	popfilter { $_ == $gffframe }
+	push { "$gffframe $gffgroup" }
+}
+
+

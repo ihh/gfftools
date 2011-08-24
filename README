@@ -1,0 +1,17 @@
+This repository contains Perl scripts for working with GFF
+annotation files, including operations like sorting, merging and
+intersection.
+
+The scripts are hacky, unmaintained, and yet (presumably) largely
+bug-free as they have been in production use at the Sanger Institute,
+UC Berkeley and other locations since circa 1998.
+
+For more information, please visit this URL:
+http://biowiki.org/GffTools
+
+If you use the tools, please cite my PhD thesis:
+Holmes, I. PhD thesis. Dept of Genetics, University of Cambridge;
+Wellcome Trust Sanger Institute. 1998.
+
+
+Ian Holmes, UC Berkeley, August 2011
